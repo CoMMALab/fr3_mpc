@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fr3-mpc"
+version = "0.1.0"
+description = "Deploying MPC on the Franka Research 3 Robot"
+authors = [
+    { name = "Austin Garrett", email = "agarrett777@gmail.com" }
+]
+dependencies = [
+    "hydrax @ git+https://github.com/vincekurtz/hydrax.git",
+    "pyroki @ git+https://github.com/chungmin99/pyroki.git",
+    "warp-lang",
+    "jaxlie"
+]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
