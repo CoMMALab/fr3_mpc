@@ -3,9 +3,10 @@ import mujoco
 
 from hydrax.algs import PredictiveSampling, MPPI
 from hydrax.simulation.deterministic import run_interactive
-from hydrax.simulation.asynchronous import run_interactive as run_async
+# from hydrax.simulation.asynchronous import run_interactive as run_async
 from reach_pose import ReachPose
 from reach_joints import ReachJoints
+from asynchronous import run_interactive as run_async
 
 """
 Run an interactive simulation of an FE3 reaching task.
@@ -71,6 +72,7 @@ if __name__ == "__main__":
             ctrl,
             mj_model,
             mj_data,
+            record_video=True
         )
     else:
         # Run the interactive simulation
