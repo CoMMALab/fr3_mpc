@@ -4,9 +4,9 @@ import mujoco
 from hydrax.algs import PredictiveSampling, MPPI
 from hydrax.simulation.deterministic import run_interactive
 # from hydrax.simulation.asynchronous import run_interactive as run_async
-from reach_pose import ReachPose
-from reach_joints import ReachJoints
-from asynchronous import run_interactive as run_async
+from fr3_mpc.reach_pose import ReachPose
+from fr3_mpc.reach_joints import ReachJoints
+from fr3_mpc.asynchronous import run_interactive as run_async
 
 """
 Run an interactive simulation of an FE3 reaching task.

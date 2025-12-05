@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel", "scikit-build-core"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fr3-mpc"
+name = "fr3_mpc"
 version = "0.1.0"
 description = "Deploying MPC on the Franka Research 3 Robot"
 authors = [
@@ -13,8 +13,8 @@ dependencies = [
     "hydrax @ git+https://github.com/vincekurtz/hydrax.git",
     "pyroki @ git+https://github.com/chungmin99/pyroki.git",
     "warp-lang",
-    "jaxlie"
+    "jaxlie",
 ]
 
 [tool.setuptools.packages.find]
-include = ["src*"]
+include = ["fr3_mpc*"]
