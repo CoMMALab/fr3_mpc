@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import mujoco
 import mujoco.mjx as mjx
 
-from .reach_joints import ReachJoints
+from fr3_mpc.reach_joints import ReachJoints
 
 
 # Forward Kinematics
@@ -82,26 +82,25 @@ if __name__ == "__main__":
 
     import time
 
+    print("spatial")
     for _ in range(5):
         t0 = time.time()
         Jp = jac_point(mjx_model, mjx_data0, HOME, body_id, point_local)
         print(time.time() - t0)
 
+    print("rotational")
     for _ in range(5):
         t0 = time.time()
         Jw = jac_angular(mjx_model, mjx_data0, HOME, body_id)
         print(time.time() - t0)
 
+    print("joint")
     for _ in range(5):
         t0 = time.time()
         Js = jac_spatial(mjx_model, mjx_data0, HOME, body_id, point_local)
         print(time.time() - t0)
-        print(f"sqrt(det(JJ^T)) = {jnp.sqrt(jnp.linalg.det(jnp.matmul(Js, Js.T)))}")
 
-    print("Point local:", point_local)
-    # print("Jp:\n", Jp)
-    # print("Jw:\n", Jw)
-    print("Js shape:", Js.shape)
+    assert(Js.shape == (6, 9))
 
     # Add this to your main block:
     mj_data.qpos[:] = np.asarray(HOME)
@@ -112,9 +111,6 @@ if __name__ == "__main__":
     jacr = np.zeros((3, mj_model.nv))
     mujoco.mj_jacSite(mj_model, mj_data, jacp, jacr, site_id)
 
-    # print("\nMuJoCo Jp:\n", jacp)
-    # print("\nYour Jp:\n", np.asarray(Jp))
-    # print("\nMuJoCo Jw:\n", jacr)
-    # print("\nYour Jw:\n", np.asarray(Jw))
-    print("\nDifference Jp:", np.max(np.abs(jacp - np.asarray(Jp))))
-    print("Difference Jw:", np.max(np.abs(jacr - np.asarray(Jw))))
+    assert np.max(np.abs(jacp - np.asarray(Jp))) < 1e-6
+    assert np.max(np.abs(jacr - np.asarray(Jw))) < 1e-6
+    print("OK")
