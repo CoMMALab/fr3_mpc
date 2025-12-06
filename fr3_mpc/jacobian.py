@@ -100,9 +100,8 @@ if __name__ == "__main__":
         Js = jac_spatial(mjx_model, mjx_data0, HOME, body_id, point_local)
         print(time.time() - t0)
 
-    assert(Js.shape == (6, 9))
+    assert Js.shape == (6, 9) 
 
-    # Add this to your main block:
     mj_data.qpos[:] = np.asarray(HOME)
     mujoco.mj_forward(mj_model, mj_data)
 
@@ -113,4 +112,5 @@ if __name__ == "__main__":
 
     assert np.max(np.abs(jacp - np.asarray(Jp))) < 1e-6
     assert np.max(np.abs(jacr - np.asarray(Jw))) < 1e-6
+
     print("OK")

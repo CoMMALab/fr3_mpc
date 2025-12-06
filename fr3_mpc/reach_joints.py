@@ -4,6 +4,7 @@ import mujoco
 from mujoco import mjx
 
 from hydrax.task_base import Task
+from . import DEFAULT_MODEL
 
 EE_SITE = "gripper"
 TARGET_BODY = "target_body"
@@ -26,7 +27,7 @@ class ReachJoints(Task):
         Args:
             target_q: Desired 7D joint configuration (q_target).
         """
-        mj_model = mujoco.MjModel.from_xml_path("./models/panda_mjx.xml")
+        mj_model = mujoco.MjModel.from_xml_path(DEFAULT_MODEL)
 
         # Store desired joint configuration
         self.target_q = target_q

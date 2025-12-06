@@ -3,19 +3,11 @@ import mujoco
 
 from hydrax.algs import PredictiveSampling, MPPI
 from hydrax.simulation.deterministic import run_interactive
-# from hydrax.simulation.asynchronous import run_interactive as run_async
-from fr3_mpc.reach_pose import ReachPose
-from fr3_mpc.reach_joints import ReachJoints
-from fr3_mpc.asynchronous import run_interactive as run_async
+from fr3_mpc import HOME, ReachPose, HOME_POS, HOME_ROT, ReachJoints, run_interactive as run_async
 
 """
 Run an interactive simulation of an FE3 reaching task.
 """
-
-pi = np.pi
-HOME = np.array([0, -pi/4, 0, -3*pi/4, 0, pi/2, pi/4])
-HOME_POS = np.array([ 0.307, -0., 0.49])
-HOME_ROT = np.diag(np.array([1., -1., -1.]))
 
 # parser = argparse.ArgumentParser(
 #     description="Run an interactive simulation of the cube rotation task."

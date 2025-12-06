@@ -1,5 +1,6 @@
 /videos
 /staging
+/calibrations
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
