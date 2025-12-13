@@ -1,0 +1,6 @@
+[submodule "third_party/libfranka"]
+	path = third_party/libfranka
+	url = https://github.com/frankaemika/libfranka
+[submodule "third_party/pinocchio"]
+	path = third_party/pinocchio
+	url = https://github.com/stack-of-tasks/pinocchio

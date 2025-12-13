@@ -2,7 +2,7 @@ import numpy as np
 
 
 def chirp(t: float, amp: float = 15.0) -> float:
-    """Frequency sweep from 0.1 Hz to 8 Hz."""
+    """Frequency sweep from 0.1 Hz to 3 Hz."""
     T = 5.0
     f0, f1 = 0.1, 3.0
     phase_t = 2*np.pi * (f0*t + 0.5*(f1-f0)*t**2/T)

@@ -6,7 +6,7 @@ from hydrax.simulation.deterministic import run_interactive
 from fr3_mpc import HOME, ReachPose, HOME_POS, HOME_ROT, ReachJoints, run_interactive as run_async
 
 """
-Run an interactive simulation of an FE3 reaching task.
+Run an interactive simulation of an FR3 reaching task.
 """
 
 # parser = argparse.ArgumentParser(
