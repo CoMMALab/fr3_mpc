@@ -1,6 +1,9 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "scikit-build-core"]
-build-backend = "setuptools.build_meta"
+requires = [
+    "scikit-build-core>=0.9",
+    "nanobind>=1.9"
+]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "fr3_mpc"
@@ -9,6 +12,8 @@ description = "Deploying MPC on the Franka Research 3 Robot"
 authors = [
     { name = "Austin Garrett", email = "agarrett777@gmail.com" }
 ]
+requires-python = ">=3.10"
+
 dependencies = [
     "hydrax @ git+https://github.com/vincekurtz/hydrax.git",
     "pyroki @ git+https://github.com/chungmin99/pyroki.git",
@@ -16,5 +21,13 @@ dependencies = [
     "jaxlie",
 ]
 
-[tool.setuptools.packages.find]
-include = ["fr3_mpc*"]
+[tool.scikit-build]
+build-dir = "build/{wheel_tag}"
+build.verbose = true
+
+[tool.scikit-build.wheel]
+# These are Python *packages*, not files
+packages = ["fr3_mpc"]
+
+[tool.scikit-build.cmake.define]
+CMAKE_PREFIX_PATH = ".local"

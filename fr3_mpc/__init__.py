@@ -21,5 +21,5 @@ from .jacobian import \
     jac_point, \
     jac_angular
 
-from .asynchronous import \
-    run_interactive
+# from .asynchronous import \
+#     run_interactive
