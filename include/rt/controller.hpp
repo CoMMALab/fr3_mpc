@@ -19,7 +19,7 @@ public:
   FR3Controller& operator=(const FR3Controller&) = delete;
 
   // Python calls this frequently:
-  bool send_torque(const std::array<double, 7>& tau) noexcept;
+  bool push(const std::array<double, 7>& tau) noexcept;
 
   // Stop control loop and join thread
   void stop() noexcept;

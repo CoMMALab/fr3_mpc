@@ -20,7 +20,7 @@ FR3Controller::~FR3Controller() {
   stop();
 }
 
-bool FR3Controller::send_torque(const std::array<double, 7>& tau) noexcept {
+bool FR3Controller::push(const std::array<double, 7>& tau) noexcept {
   return torque_buffer_.try_write(tau);
 }
 

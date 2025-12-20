@@ -11,7 +11,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # --------------------------------------------------
 # Dependencies
 # --------------------------------------------------
-find_package(Python 3 REQUIRED COMPONENTS Development)
+find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(Franka REQUIRED)
 include(FetchContent)
 FetchContent_Declare(
