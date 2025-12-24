@@ -5,9 +5,11 @@ import mujoco.viewer
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 from dataclasses import dataclass
-from multiprocessing import Event, shared_memory
+
+from . import HOME
+from .shared_memory import SharedMemoryNumpyArray
 
 
 class State(NamedTuple):
@@ -15,6 +17,15 @@ class State(NamedTuple):
     qpos: np.ndarray
     qvel: np.ndarray
     tau: np.ndarray
+
+    @staticmethod
+    def from_data(data):
+        return State(
+            data.time,  # Use MuJoCo simulation time
+            data.qpos.copy(),
+            data.qvel.copy(),
+            data.ctrl.copy()
+        )
 
 @dataclass
 class Trajectory:
@@ -29,11 +40,22 @@ class Trajectory:
         self.qvel = np.empty((0,7))
         self.tau = np.empty((0,7))
 
-    def append(self, state: State):
+    def append(self, state):
+        """Append a state to the trajectory.
+
+        Handles both Python State (qpos/qvel) and C++ State (q/dq).
+        """
+        # Handle both Python simulation State and C++ FR3Robot State
+        qpos = getattr(state, 'qpos', getattr(state, 'q', None))
+        qvel = getattr(state, 'qvel', getattr(state, 'dq', None))
+
+        if qpos is None or qvel is None:
+            raise ValueError(f"State must have qpos/qvel or q/dq attributes")
+
         self.time = np.concat([self.time, [state.time]], axis=0)
-        self.qpos = np.concat([self.qpos, [state.qpos]], axis=0)
-        self.qvel = np.concat([self.qvel, [state.qvel]], axis=0)
-        self.tau  = np.concat([self.tau , [state.tau ]], axis=0)
+        self.qpos = np.concat([self.qpos, [np.array(qpos)[:7]]], axis=0)
+        self.qvel = np.concat([self.qvel, [np.array(qvel)[:7]]], axis=0)
+        self.tau  = np.concat([self.tau , [np.array(state.tau)[:7]]], axis=0)
 
     def save(self, path):
         np.savez(path, **self.__dict__)
@@ -81,88 +103,142 @@ class Trajectory:
         
         return fig
 
-class SharedMemoryNumpyArray:
-    """Helper class to store a numpy array in shared memory."""
+class SharedMemoryTorqueBuffer:
+    """
+    Shared-memory SPSC ring buffer for 7-dim torque vectors.
 
-    def __init__(self, arr: np.ndarray, ctx: mp.context.BaseContext):
-        """Create a shared memory numpy array.
+    Semantics match the C++ TorqueBuffer<N>.
+    """
 
-        Args:
-            arr: The numpy array to store in shared memory. Size and dtype must
-                 be fixed.
-            ctx: The multiprocessing context to use for shared memory.
+    def __init__(self, N: int, ctx: mp.context.BaseContext):
+        assert (N & (N - 1)) == 0, "N must be power of two"
+        self.N = N
+        self.mask = N - 1
+
+        # data buffer: shape (N, 7)
+        self.data = SharedMemoryNumpyArray(
+            np.zeros((N, 7), dtype=np.float64), ctx
+        )
+
+        # head / tail counters
+        self.head = ctx.Value("Q", 0)  # uint64_t
+        self.tail = ctx.Value("Q", 0)
+
+        # locks approximate acquire/release ordering
+        self.head_lock = ctx.Lock()
+        self.tail_lock = ctx.Lock()
+
+    def try_write(self, v: np.ndarray) -> bool:
         """
-        self.shm = shared_memory.SharedMemory(create=True, size=arr.nbytes)
-        shared_arr = np.ndarray(arr.shape, dtype=arr.dtype, buffer=self.shm.buf)
-        shared_arr[:] = arr[:]
-        self.shape = arr.shape
-        self.dtype = arr.dtype
-        self.lock = ctx.Lock()
-
-    def __getitem__(self, key: int) -> np.ndarray:
-        """Get an item from the shared array."""
-        shm = shared_memory.SharedMemory(name=self.shm.name)
-        arr = np.ndarray(self.shape, dtype=self.dtype, buffer=shm.buf)
-        return np.copy(arr[key])  # Need to copy here to avoid segfaults
-
-    def __setitem__(self, key: int, value: np.ndarray) -> None:
-        """Set an item in the shared array."""
-        with self.lock:
-            shm = shared_memory.SharedMemory(name=self.shm.name)
-            arr = np.ndarray(self.shape, dtype=self.dtype, buffer=shm.buf)
-            arr[key] = value
-
-    def __str__(self) -> str:
-        """Return the string representation of the shared array."""
-        shm = shared_memory.SharedMemory(name=self.shm.name)
-        arr = np.ndarray(self.shape, dtype=self.dtype, buffer=shm.buf)
-        return str(arr)
-
-    def __del__(self) -> None:
-        """Clean up the shared memory on deletion."""
-        self.shm.close()
-        self.shm.unlink()
-
-class SharedMemorySimulation:
-    """Helper class for passing mujoco data between concurrent processes."""
-
-    def __init__(self, mj_data: mujoco.MjData, ctx: mp.context.BaseContext):
-        """Create shared memory objects for state and control data.
-
-        Note that this does not copy the full mj_data object, only those fields
-        that we want to share between the simulator and controller.
-
-        Args:
-            mj_data: The mujoco data object to store in shared memory.
-            ctx: The multiprocessing context to use.
+        Attempt to write a torque vector.
+        Returns True on success, False if buffer full.
         """
-        # N.B. we use float32 to match JAX's default precision
+        assert v.shape == (7,)
+
+        with self.head_lock:
+            h = self.head.value
+            t = self.tail.value
+
+            if h - t < self.N:
+                self.data[h & self.mask] = v
+                self.head.value = h + 1
+                return True
+
+        return False
+
+    def try_read(self) -> Optional[np.ndarray]:
+        """
+        Attempt to read a torque vector (FIFO order).
+        Returns vector on success, None if buffer empty.
+        """
+        with self.tail_lock:
+            t = self.tail.value
+            h = self.head.value
+
+            if h > t:
+                v = self.data[t & self.mask].copy()
+                self.tail.value = t + 1
+                return v
+
+        return None
+
+class SharedMemoryState:
+    """Shared-memory container for a single State.
+
+    Exposes read() / write() instead of indexing.
+    """
+
+    def __init__(
+        self,
+        state: State,
+        ctx: mp.context.BaseContext,
+    ):
+        # store time as length-1 array for uniformity
+        self.time = SharedMemoryNumpyArray(
+            np.array([state.time], dtype=np.float64), ctx
+        )
         self.qpos = SharedMemoryNumpyArray(
-            np.array(mj_data.qpos, dtype=np.float32), ctx
+            np.asarray(state.qpos, dtype=np.float32), ctx
         )
         self.qvel = SharedMemoryNumpyArray(
-            np.array(mj_data.qvel, dtype=np.float32), ctx
+            np.asarray(state.qvel, dtype=np.float32), ctx
         )
-        self.ctrl = SharedMemoryNumpyArray(
-            np.zeros(mj_data.ctrl.shape, dtype=np.float32), ctx
+        self.tau = SharedMemoryNumpyArray(
+            np.asarray(state.tau, dtype=np.float32), ctx
         )
 
+        # single lock for atomic State semantics
+        self.lock = ctx.Lock()
+
+    def read(self) -> State:
+        """Atomically read the full State."""
+        with self.lock:
+            return State(
+                time=float(self.time[0]),
+                qpos=self.qpos[:],
+                qvel=self.qvel[:],
+                tau=self.tau[:],
+            )
+
+    def write(self, state: State) -> None:
+        """Atomically write the full State."""
+        with self.lock:
+            self.time[0] = state.time
+            self.qpos[:] = state.qpos
+            self.qvel[:] = state.qvel
+            self.tau[:] = state.tau
+
+    def __str__(self) -> str:
+        return str(self.read())
+
+
 class FR3Simulation:
-    def __init__(self, xml_path: str, dt: float = 0.001):
+    def __init__(self, xml_path: str, dt: float = 0.001, qpos0=None):
         # Load MuJoCo model + data
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
         self.dt = dt
 
+        # Set initial joint configuration (if provided)
+        if qpos0 is not None:
+            self.data.qpos[:len(qpos0)] = qpos0
+            self.data.qvel[:] = 0  # Start from rest
+            mujoco.mj_forward(self.model, self.data)  # Update derived quantities
+
         # Control dimensions
         self.nu = self.model.nu
-        self.torque_buffer = np.zeros(self.nu)
 
         # Runtime state
         self.error_message = None
 
         self.ctx = mp.get_context("spawn")  # Need to use spawn for jax compatibility
-        # self.shm_data = SharedMemorySimulation(self.data, self.ctx)
+        self.shm_state = SharedMemoryState(
+            State.from_data(self.data),
+            self.ctx
+        )
+        # Shared memory torque buffer (SPSC ring buffer)
+        self.torque_buffer = SharedMemoryTorqueBuffer(N=1024, ctx=self.ctx)
+
         self.ready = self.ctx.Event()
         self.finished = self.ctx.Event()
         self._start_process()
@@ -171,14 +247,21 @@ class FR3Simulation:
     # Public API (matches C++)
     # -------------------------
 
+    def wait_until_ready(self, timeout: float = 10.0) -> bool:
+        """Wait until the control loop is ready to accept commands.
+
+        Returns:
+            True if ready, False if timeout occurred
+        """
+        return self.ready.wait(timeout)
+
     def push(self, torque) -> bool:
         """Non-blocking, best-effort write."""
         try:
             tau = np.asarray(torque, dtype=float)
-            if tau.shape != self.torque_buffer.shape:
+            if tau.shape != (self.nu,):
                 return False
-            self.torque_buffer[:] = tau
-            return True
+            return self.torque_buffer.try_write(tau)
         except Exception:
             return False
 
@@ -186,8 +269,6 @@ class FR3Simulation:
         was_running = not self.finished.is_set()
         self.finished.set()
         self.data = None
-        print("was running?")
-        print(was_running)
         if was_running and self._process is not None:
             self._process.terminate()
 
@@ -239,14 +320,31 @@ class FR3Simulation:
             self.running = True
             iter_count = 0
 
+            # Signal that we're ready to accept commands
+            self.ready.set()
+
             with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
+                # Track start time for deterministic timing
+                t0 = time.time()
+
                 while viewer.is_running() and self.running:
-                    # Apply last commanded torque
+                    # Compute bias forces (gravity + coriolis compensation)
                     bias = np.zeros(self.model.nv)
                     mujoco.mj_rne(self.model, self.data, 0, bias)
-                    self.data.ctrl = bias # + self.torque_buffer
+
+                    # Read commanded torques from buffer (if any)
+                    tau_cmd = self.torque_buffer.try_read()
+                    if tau_cmd is not None:
+                        self.data.ctrl = bias + tau_cmd
+                    else:
+                        self.data.ctrl = bias
+
                     mujoco.mj_step(self.model, self.data)
-                    viewer.sync()
+                    self.shm_state.write(State.from_data(self.data))
+
+                    # Sync viewer at reduced rate to avoid slowing down simulation
+                    if iter_count % 10 == 0:  # 100 Hz viewer update
+                        viewer.sync()
 
                     # Throttled debug (~1 Hz)
                     if iter_count % int(1 / self.dt) == 0:
@@ -256,7 +354,12 @@ class FR3Simulation:
                         )
 
                     iter_count += 1
-                    time.sleep(self.dt)
+
+                    # Deterministic timing: sleep until next timestep
+                    target_time = t0 + iter_count * self.dt
+                    sleep_time = target_time - time.time()
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
 
         except Exception as e:
             self.error_message = str(e)
@@ -270,12 +373,7 @@ class FR3Simulation:
     # -------------------------
 
     def read(self) -> State:
-        return State(
-            time.time(),
-            self.data.qpos.copy(),
-            self.data.qvel.copy(),
-            self.data.ctrl.copy()
-        )
+        return self.shm_state.read()
 
     def _start_process(self):
         try:

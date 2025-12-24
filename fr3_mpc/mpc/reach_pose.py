@@ -2,8 +2,8 @@ import jax
 import jax.numpy as jnp
 import mujoco
 from mujoco import mjx
-
 from hydrax.task_base import Task
+from .. import DEFAULT_MODEL
 
 EE_SITE = "gripper"
 TARGET_BODY = "target_body"
@@ -12,8 +12,10 @@ TARGET_BODY = "target_body"
 class ReachPose(Task):
     """A reaching task for poses in SE(3)."""
 
-    def __init__(self, target_pos: jax.Array, target_rot: jax.Array) -> None:
-        mj_model = mujoco.MjModel.from_xml_path("./models/panda_mjx.xml")
+    def __init__(self, target_pos: jax.Array, target_rot: jax.Array, model_path: str = None) -> None:
+        if model_path is None:
+            model_path = DEFAULT_MODEL
+        mj_model = mujoco.MjModel.from_xml_path(model_path)
 
         self.target_pos = target_pos
         self.target_rot = target_rot

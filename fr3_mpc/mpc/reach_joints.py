@@ -2,22 +2,12 @@ import jax
 import jax.numpy as jnp
 import mujoco
 from mujoco import mjx
-
 from hydrax.task_base import Task
-from . import DEFAULT_MODEL
+from .. import DEFAULT_MODEL
 
 EE_SITE = "gripper"
 TARGET_BODY = "target_body"
 
-
-# data = mujoco.MjData(model)
-# data.qpos[:7] = q
-# mujoco.mj_forward(model, data)
-
-# sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
-# pos = data.site_xpos[sid].copy()
-# rot = data.site_xmat[sid].reshape(3, 3).copy()
-# return pos, rot
 
 class ReachJoints(Task):
     """A reaching task for 7D joints in configuration space."""
@@ -45,7 +35,6 @@ class ReachJoints(Task):
         _tmp_data.qpos[:7] = target_q
         mujoco.mj_forward(mj_model, _tmp_data)
         pos = _tmp_data.site_xpos[self.ee_sid].copy()
-        # rot = _tmp_data.site_xmat[self.ee_sid].reshape(3, 3).copy()
         mj_model.body_pos[self.target_bid] = pos
         del _tmp_data
 

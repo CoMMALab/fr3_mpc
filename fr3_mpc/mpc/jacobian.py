@@ -4,8 +4,6 @@ import jax.numpy as jnp
 import mujoco
 import mujoco.mjx as mjx
 
-from fr3_mpc.reach_joints import ReachJoints
-
 
 # Forward Kinematics
 
@@ -64,6 +62,8 @@ def expand_qpos(mj_model, arm_qpos7):
 
 
 if __name__ == "__main__":
+    from fr3_mpc.mpc import ReachJoints
+
     pi = np.pi
     HOME7 = jnp.array([0, -pi/4, 0, -3*pi/4, 0, pi/2, pi/4])
 
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         Js = jac_spatial(mjx_model, mjx_data0, HOME, body_id, point_local)
         print(time.time() - t0)
 
-    assert Js.shape == (6, 9) 
+    assert Js.shape == (6, 9)
 
     mj_data.qpos[:] = np.asarray(HOME)
     mujoco.mj_forward(mj_model, mj_data)

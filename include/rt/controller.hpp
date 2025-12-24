@@ -1,25 +1,30 @@
 #pragma once
 #include <array>
 #include <atomic>
+#include <mutex>
 #include <string>
 #include <thread>
 
+#include "rt/state.hpp"
 #include "rt/torque_buffer.hpp"
 
 namespace rt {
 
-class FR3Controller {
+class FR3Robot {
 public:
   static constexpr size_t kBufferSize = 1024;
 
-  explicit FR3Controller(std::string robot_ip);
-  ~FR3Controller();
+  explicit FR3Robot(std::string robot_ip);
+  ~FR3Robot();
 
-  FR3Controller(const FR3Controller&) = delete;
-  FR3Controller& operator=(const FR3Controller&) = delete;
+  FR3Robot(const FR3Robot&) = delete;
+  FR3Robot& operator=(const FR3Robot&) = delete;
 
   // Python calls this frequently:
   bool push(const std::array<double, 7>& tau) noexcept;
+
+  // Read the most recent robot state
+  State read() const noexcept;
 
   // Stop control loop and join thread
   void stop() noexcept;
@@ -34,6 +39,10 @@ private:
 
   alignas(64) TorqueBuffer<kBufferSize> torque_buffer_{};
   alignas(64) std::atomic<bool> running_{false};
+
+  // Most recent robot state (read from RT thread, written to from control loop)
+  mutable std::mutex state_mutex_;
+  State state_{};
 
   // Non-RT error reporting
   mutable std::atomic<bool> has_error_{false};
