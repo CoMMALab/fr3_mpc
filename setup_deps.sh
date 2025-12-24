@@ -68,18 +68,22 @@ cmake --install .
 # --------------------------------------------------
 # 4. Build & install pylibfranka (Python)
 # --------------------------------------------------
-# echo "==> Installing pylibfranka"
-# (
-#   cd "$ROOT_DIR/third_party/libfranka"
-#   # Phase 1: install pybind11 only
-#   uv pip install pybind11
-#   # Phase 2: discover pybind11 CMake dir
-#   PYBIND11_CMAKE_DIR="$(python -m pybind11 --cmakedir)"
-#   # Phase 3: build pylibfranka with scoped env
-#   CMAKE_PREFIX_PATH="$PREFIX:$PYBIND11_CMAKE_DIR" \
-#   LD_LIBRARY_PATH="$PREFIX/lib:$PREFIX/lib64" \
-#   uv pip install .
-# )
-# 
-# echo "==> Installation complete!"
-# echo "==> Libraries installed to: $PREFIX"
+echo "==> Installing pylibfranka"
+
+(
+  cd "$ROOT_DIR/third_party/libfranka"
+
+  # Phase 1: install nanobind
+  uv pip install nanobind
+
+  # Phase 2: discover nanobind CMake dir
+  NANOBIND_CMAKE_DIR="$(python -m nanobind --cmake_dir)"
+
+  # Phase 3: build pylibfranka with scoped env
+  CMAKE_PREFIX_PATH="$PREFIX:$NANOBIND_CMAKE_DIR" \
+  LD_LIBRARY_PATH="$PREFIX/lib:$PREFIX/lib64" \
+  uv pip install .
+)
+
+echo "==> Installation complete!"
+echo "==> Libraries installed to: $PREFIX"
