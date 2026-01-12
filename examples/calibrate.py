@@ -19,6 +19,20 @@ from fr3_mpc import HOME
 from fr3_mpc.simulation import FR3Simulation, Trajectory
 from torques import make_excitation
 
+plt.rcParams['figure.figsize'] = (36, 10)
+plt.style.use('seaborn-v0_8-whitegrid')  # or 'ggplot', 'bmh', etc.
+plt.rcParams.update({
+    'figure.figsize': (36, 10),
+    'axes.titlesize': 24,
+    'axes.titleweight': 'bold',
+    'axes.labelsize': 18,
+    'axes.labelweight': 'bold',
+    'xtick.labelsize': 16,
+    'ytick.labelsize': 16,
+    'legend.fontsize': 20,
+    'lines.linewidth': 3,
+})
+
 
 # ============================================================================
 # Configuration

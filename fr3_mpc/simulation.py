@@ -66,7 +66,7 @@ class Trajectory:
         return Trajectory(**{k: data[k] for k in data.files})
 
     def plot(self):
-        fig = plt.figure(figsize=(18,5))
+        fig = plt.figure()
         axes = fig.subplots(1, 3)
         ts = np.arange(self.time.shape[0])
 
@@ -89,7 +89,7 @@ class Trajectory:
         axes[1].set_title("Joint Positions")
         axes[1].set_xlabel("Timestep")
         axes[1].set_ylabel("Position [rad]")
-        axes[1].legend(loc="upper right", fontsize=8)
+        axes[1].legend(loc="upper right")
 
         # Panel 3: Joint Velocities
         for j in range(7):
@@ -97,7 +97,7 @@ class Trajectory:
         axes[2].set_title("Joint Velocities")
         axes[2].set_xlabel("Timestep")
         axes[2].set_ylabel("Velocity [rad/s]")
-        axes[2].legend(loc="upper right", fontsize=8)
+        axes[2].legend(loc="upper right")
 
         fig.tight_layout()
         
