@@ -1,6 +1,13 @@
 /videos
 /staging
 /calibrations
+/results
+
+# Local scratch / state
+/.local/
+
+# Data archives (collected experiment bundles, not source)
+*.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
